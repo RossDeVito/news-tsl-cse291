@@ -21,9 +21,9 @@ This method has a supervised component - regression for ranking dates. The regre
 Running & evaluating the `clust` method on the `t17` dataset:
 ```bash
 python experiments/evaluate.py \
-	--dataset $DATASETS/t17 \
+	--dataset datasets/t17 \
 	--method clust \
-	--output $RESULTS/t17.clust.json
+	--output results/t17.clust.json
 ```
 
 For the other datasets, simply replace `t17` with `crisis` or `entities`.
