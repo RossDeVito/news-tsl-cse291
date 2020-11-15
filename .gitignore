@@ -1,5 +1,6 @@
-# dev folders
-ross_dev/
+# Ross local
+experiments/new_metrics.py
+experiments/__pycache__/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
