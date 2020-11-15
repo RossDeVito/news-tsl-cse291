@@ -47,6 +47,7 @@ def main(args):
 
     # these are settings we only apply to our new dataset (entities) but not to
     # crisis/t17 to keep these comparable to previous work
+
     if dataset_name == 'entities':
         explore_dataset(dataset, trunc_timelines=True, time_span_extension=7)
     else:
