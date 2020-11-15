@@ -101,7 +101,7 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_e
             collection.start = start
             collection.end = end
 
-            utils.plot_date_stats(collection, ref_dates)
+            # utils.plot_date_stats(collection, ref_dates)
 
             l = len(ref_dates)
             k = data.get_average_summary_length(ref_timeline)
