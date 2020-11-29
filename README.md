@@ -1,15 +1,6 @@
 # News Timeline Summarization
-Data & code for the ACL 2020 paper Examining the State-of-the-Art in News Timeline Summarization ([paper](https://www.aclweb.org/anthology/2020.acl-main.122.pdf),  [slides](acl20-slides.pdf)).
 
 ### Updates
-Available
-* all datasets
-* methods & evaluation code
-* preprocessing instructions for new datasets
-
-Planned
-* instructions to train date ranking models
-* more user-friendly fast TLS version to run on unpreprocessed data
 
 ### Datasets
 
@@ -35,18 +26,3 @@ Check out [experiments here](experiments).
 ### Format & preprocess your own dataset
 If you have a new dataset yourself and want to use preprocess it as the datasets above, check out the [preprocessing steps here](preprocessing).
 
-### Citation
-```
-@inproceedings{gholipour-ghalandari-ifrim-2020-examining,
-    title = "Examining the State-of-the-Art in News Timeline Summarization",
-    author = "Gholipour Ghalandari, Demian  and
-      Ifrim, Georgiana",
-    booktitle = "Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics",
-    month = jul,
-    year = "2020",
-    address = "Online",
-    publisher = "Association for Computational Linguistics",
-    url = "https://www.aclweb.org/anthology/2020.acl-main.122",
-    pages = "1322--1334",
-}
-```
