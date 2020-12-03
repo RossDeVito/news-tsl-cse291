@@ -1,4 +1,5 @@
 import argparse
+from collections import defaultdict
 from pathlib import Path
 from tilse.data.timelines import Timeline as TilseTimeline
 from tilse.data.timelines import GroundTruth as TilseGroundTruth
@@ -9,7 +10,7 @@ from pprint import pprint
 import numpy as np
 
 from metrics.moverscore import get_idf_dict, get_wordmover_score
-from collections import defaultdict
+import tr_network
 
 
 def get_scores(metric_desc, pred_tl, groundtruth, evaluator):
@@ -225,6 +226,20 @@ def main(args):
 			clip_sents=5,
 			unique_dates=True,
 		)
+	elif args.method == 'clust_subopt':
+		cluster_ranker = clust.ClusterDateMentionCountRanker()
+		clusterer = clust.TemporalMarkovClusterer()
+		summarizer = summarizers.SubmodularSummarizer()
+		system = clust.ClusteringTimelineGenerator(
+			cluster_ranker=cluster_ranker,
+			clusterer=clusterer,
+			summarizer=summarizer,
+			clip_sents=5,
+			unique_dates=True,
+		)
+	elif args.method == 'network':
+		summarizer = summarizers.CentroidOpt()
+		system = tr_network.NetworkTimelineGenerator()
 	else:
 		raise ValueError(f'Method not found: {args.method}')
 
@@ -238,6 +253,7 @@ def main(args):
 
 if __name__ == '__main__':
 	# time nohup python -u evaluate_new.py --dataset "../../data/entities" --method clust --output "../results/cluster_entities_wm.json"
+	# time nohup python -u evaluate_new.py --dataset "../../data/entities" --method clust_subopt --output "../results/cluster_subopt_entities_wm.json"
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--dataset', required=True)
