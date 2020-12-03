@@ -1,4 +1,7 @@
+import collections
+
 import networkx as nx
+import numpy as np
 from scipy import sparse
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize

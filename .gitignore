@@ -1,6 +1,7 @@
 # Ross local
 experiments/new_metrics.py
 experiments/__pycache__/
+experiments/nohup*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
