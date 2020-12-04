@@ -8,7 +8,7 @@ import copy
 
 class Content:
 
-    def __init__(self, api, url=None, **kwargs):
+    def __init__(self, api, url=None, from_date=None, to_date=None, **kwargs):
         """
         :param api: api_key
         :param url: optional url to get the content.
@@ -18,9 +18,17 @@ class Content:
 
         self.__headers = {
             "api-key": api,
-            "format": "json"
+            "format": "json",
+            'page-size': '100',
+            'show-fields': 'body'
         }
         self.__request_response = None
+
+        if from_date is not None:
+            self.__headers['from-date'] = from_date
+
+        if from_date is not None:
+            self.__headers['to-date'] = to_date
 
         if url is None:
             self.base_url = "https://content.guardianapis.com/search"
