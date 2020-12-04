@@ -101,7 +101,7 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_e
             collection.start = start
             collection.end = end
 
-            #utils.plot_date_stats(collection, ref_dates)
+            # utils.plot_date_stats(collection, ref_dates)
 
             l = len(ref_dates)
             k = data.get_average_summary_length(ref_timeline)
@@ -113,8 +113,8 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_e
                 ref_tl=ref_timeline # only oracles need this
             )
 
-            # print('*** PREDICTED ***')
-            # utils.print_tl(pred_timeline_)
+            print('*** PREDICTED ***')
+            utils.print_tl(pred_timeline_)
 
             print('timeline done')
             pred_timeline = TilseTimeline(pred_timeline_.date_to_summaries)
