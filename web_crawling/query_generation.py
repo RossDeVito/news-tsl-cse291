@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 
 def parse_timelines(file):
+    # get timelines from file
     with open(file+'/timelines.jsonl', 'r') as f:
         timeline = json.load(f)
 
@@ -11,6 +12,7 @@ def parse_timelines(file):
 
 
 def parse_keywords(file):
+    # get keyword from file
     with open(file+'/keywords.json', 'r') as f:
         timeline = json.load(f)
 
@@ -18,11 +20,13 @@ def parse_keywords(file):
 
 
 def generate_query(tls, kws, dir):
+    # generate query, the format of query is [time, [keyword1, keyword2, ..., keyword_n]]
     queries = []
     for tl in tls:
         print(tl[1])
 
         q = kws.copy()
+        # type one keyword each time, smash enter to skip
         x = input()
         q.append(x)
         while len(x) > 0:
@@ -32,6 +36,7 @@ def generate_query(tls, kws, dir):
 
         queries.append([tl[0], q])
 
+    # new query will be stored in queries.json file
     with open(dir+'/queries.json', 'w') as f:
         json.dump(queries, f, indent=4)
     return
@@ -40,10 +45,8 @@ def generate_query(tls, kws, dir):
 if __name__ == '__main__':
     root = './entities/'
 
-    tl_dirs = [os.path.join(root, name) for name in os.listdir(root) if
-                  os.path.isdir(os.path.join(root, name))]
-    for tl in tl_dirs:
-        print(tl)
-        timelines = parse_timelines(tl)
-        keywords = parse_keywords(tl)
-        generate_query(timelines, keywords, tl)
+    # visit the directory, yo can change it to any directory as you want
+    print(root)
+    timelines = parse_timelines(root)
+    keywords = parse_keywords(root)
+    generate_query(timelines, keywords, root)
