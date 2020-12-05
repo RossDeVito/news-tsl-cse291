@@ -6,3 +6,8 @@ arrow>=0.13.1
 spacy>=2.1.4
 matplotlib>=3.0.3
 markov_clustering==0.0.6.dev
+
+tilse~=0.2.1
+networkx~=2.4
+setuptools~=45.2.0
+requests~=2.22.0

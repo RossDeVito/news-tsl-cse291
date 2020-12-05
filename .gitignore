@@ -11,6 +11,11 @@ date_models/**
 # Thanks to https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 #
 
+# Ross local
+experiments/new_metrics.py
+experiments/__pycache__/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
