@@ -2,9 +2,10 @@
 # Custom gitignore
 #
 .DS_Store
+.idea/**
 **/datasets
 **/results
-
+date_models/**
 #
 # Python Master gitignore file
 # Thanks to https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore

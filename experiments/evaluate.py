@@ -5,6 +5,8 @@ from tilse.data.timelines import GroundTruth as TilseGroundTruth
 from tilse.evaluation import rouge
 from news_tls import utils, data, datewise, clust, summarizers
 from pprint import pprint
+import torch
+from date_models.models import *
 
 
 def get_scores(metric_desc, pred_tl, groundtruth, evaluator):
@@ -154,12 +156,27 @@ def main(args):
 
     if args.method == 'datewise':
         resources = Path(args.resources)
-        models_path = resources / 'supervised_date_ranker.{}.pkl'.format(
-            dataset_name
-        )
-        # load regression models for date ranking
-        key_to_model = utils.load_pkl(models_path)
-        date_ranker = datewise.SupervisedDateRanker(method='regression')
+
+
+
+        # load regression date_models for date ranking
+        if args.model == 'new_lr':
+            method = 'log_regression'
+            models_path = resources / 'date_ranker_new_lr.all.pkl'
+            key_to_model = utils.load_pkl(models_path)
+            model = key_to_model[dataset_name]
+        elif args.model == 'deep_nn':
+            method = 'deep_nn'
+            model = FCNet(in_dims=7)
+            models_path = resources / 'date_ranker_fcn.all.bin'
+            model.load_state_dict(torch.load(models_path)[dataset_name])
+            key_to_model = None
+        else:
+            method = 'linear_regression'
+            models_path = resources / 'date_ranker_orig.{}.pkl'.format(dataset_name)
+            key_to_model = utils.load_pkl(models_path)
+            model = None
+        date_ranker = datewise.SupervisedDateRanker(model, method=method)
         sent_collector = datewise.PM_Mean_SentenceCollector(
             clip_sents=5, pub_end=2)
         summarizer = summarizers.CentroidOpt()
@@ -167,7 +184,8 @@ def main(args):
             date_ranker=date_ranker,
             summarizer=summarizer,
             sent_collector=sent_collector,
-            key_to_model = key_to_model
+            key_to_model = key_to_model,
+            method = method
         )
 
     elif args.method == 'clust':
@@ -195,6 +213,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', required=True)
     parser.add_argument('--method', required=True)
+    parser.add_argument('--model', required=False, default=False)
     parser.add_argument('--resources', default=None,
         help='model resources for tested method')
     parser.add_argument('--output', default=None)

@@ -16,6 +16,17 @@ python experiments/evaluate.py \
 	--resources resources/datewise \
 	--output $RESULTS/t17.datewise.json
 ```
+
+Running & evaluating the JUST the deep neural net date prediction model on the `t17` dataset:
+```bash
+python experiments/evaluate_date_only.py \
+	--dataset datasets/t17 \
+	--method datewise \
+    --model deep_nn \
+	--resources resources/datewise \
+	--output $RESULTS/date_only_crisis.datewise.json
+
+```
 This method has a supervised component - regression for ranking dates. The regression models were trained separately and are only loaded and used in this process. Note that for each topic in a dataset, a different model was trained and is selected in evaluation because we are doing leave-one-out cross-validation.
 
 Running & evaluating the `clust` method on the `t17` dataset:

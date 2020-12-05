@@ -11,14 +11,18 @@ def tokenize_dataset(root, spacy_model):
     for topic in sorted(os.listdir(root)):
         print('TOPIC:', topic)
         if os.path.exists(root / topic / 'articles.jsonl.gz'):
+            print('Found jsonl.gz file for ', topic)
             articles = list(utils.read_jsonl_gz(root / topic / 'articles.jsonl.gz'))
         elif os.path.exists(root / topic / 'articles.jsonl'):
+            print('Found jsonl file for ', topic)
             articles = list(utils.read_jsonl(root / topic / 'articles.jsonl'))
         else:
+            print('Error, skipping topic: ', topic)
             continue
 
         jsonl_out_path = root / topic / 'articles.tokenized.jsonl'
         out_batch = []
+
         for i, a in enumerate(articles):
 
             tokenized_doc = ''
@@ -36,7 +40,9 @@ def tokenize_dataset(root, spacy_model):
 
         utils.write_jsonl(out_batch, jsonl_out_path, override=False)
 
-        gz_out_path = root / topic / 'articles.tokenized.jsonl.gz'
+        token_file = 'articles.tokenized.jsonl.gz'
+        print('Saving {} to {}/{}.'.format(token_file,root,topic))
+        gz_out_path = root / topic / token_file
         utils.gzip_file(jsonl_out_path, gz_out_path, delete_old=True)
 
 

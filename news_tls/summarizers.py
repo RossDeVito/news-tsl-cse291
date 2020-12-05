@@ -177,7 +177,7 @@ class SubmodularSummarizer(Summarizer):
     """
     Selects a combination of sentences as a summary by greedily optimising
     a submodular function.
-    The function models the coverage and diversity of the sentence combination.
+    The function date_models the coverage and diversity of the sentence combination.
     """
     def __init__(self, a=5, div_weight=6, cluster_factor=0.2):
         self.name = 'Submodular Summarizer'

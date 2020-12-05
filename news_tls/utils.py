@@ -28,6 +28,7 @@ def dict_to_dense_vector(d, key_to_idx):
 
 
 def read_file(path):
+
     with codecs.open(path, 'r', encoding='utf-8', errors='ignore') as f:
         text = f.read()
     return text
