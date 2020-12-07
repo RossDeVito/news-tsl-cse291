@@ -1,7 +1,12 @@
 import argparse
 from pathlib import Path
-
+import torch
 from torch.utils.data import DataLoader
+import sys
+import os
+
+sys.path.append(os.path.join("../"))
+
 
 from date_models.model_utils import *
 from news_tls.data import *
@@ -17,45 +22,46 @@ def main(args):
 
     for dataset_name in dataset_names:
 
-        # Get saved model's path
-        version, model_file_type, orig_eval = 'all', 'pkl', False
-        if args.model == 'deep_nn': model_file_type = 'bin'
-        if args.model == 'orig':
-            version = dataset_name
-            orig_eval = True
-        model_path = '../resources/datewise/date_ranker_{}.{}.{}'.format(args.model, version, model_file_type)
-
-        if not Path(model_path).exists():
-            raise FileNotFoundError(f'Model not found: {model_path}')
-
         # Load dataset
         dataset_path = Path('../datasets/{}'.format(dataset_name))
         dataset = load_dataset(dataset_path)
 
-        # Extract a set of features and labels for all collections (aka topics) in the dataset
-        if args.debug:
-            super_extracted_features, super_dates_y = extract_features_and_labels(dataset.collections[0:1],
-                                                                                  dataset_name, orig_eval)
+        # Eval orig linear reg model
+        orig_eval = False
+        if args.model == 'orig':
+            orig_eval = True
+            method = 'linear_regression'
+        elif args.model == 'new_lr':
+            method = 'log_regression'
         else:
-            super_extracted_features, super_dates_y = extract_features_and_labels(dataset.collections,
-                                                                                  dataset_name, orig_eval)
+            method = 'neural_net'
+
+        # Extract a set of features and labels for all collections (aka topics) in the dataset
+        super_extracted_features, super_dates_y = extract_features_and_labels(dataset.collections, dataset_name, args.debug, orig_eval, method=method)
 
         # Run logistic regression for all timelines, in all collections
         super_date_ranker = datewise.SupervisedDateRanker()
         t, v, f = super_date_ranker.init_data((super_extracted_features, super_dates_y),
                                               return_data=True)  # train/val/test splits
 
+
+        # python evaluate_date_only.py --model fcn > date_only.fcn.v2.out
+        # python evaluate_date_only.py --model deep_fcn > date_only.deep_fcn.v2.out
+        # python evaluate_date_only.py --model wide_fcn > date_only.wide_fcn.v2.out
+        # python evaluate_date_only.py --model cnn > date_only.cnn.v2.out
+
         # Load and run model
         print('Evaluating {} model on a test set from {}:'.format(args.model, dataset_name))
-        if args.model == 'deep_nn':
-            in_dims = t[0][1].size
-            model = FCNet(in_dims)
+        if is_neural_net(args.model):
+            model, model_path = model_selector(args.model)
             model.load_state_dict(torch.load(model_path)[dataset_name])
             dataset_test = DateDataset(f[0], f[1])
             dataloader_test = DataLoader(dataset_test, batch_size=16, shuffle=False, num_workers=0)
             test_logits, test_labels, _ = run_validation(model, dataloader_test)
             run_evaluation(test_logits, test_labels, 'Test Set')
         elif args.model == 'new_lr':
+            model_path = '../resources/datewise/date_ranker_new_lr.all.pkl'
+            is_valid_path(model_path)
             super_date_ranker.load_model_lr(model_path, dataset_name)
             super_date_ranker.predict_lr(f)
 
@@ -65,8 +71,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', required=False, default=False)
     parser.add_argument('--model', required=True, default='orig',
-                        help='model to use for date predictions. "orig" for original, '
-                             '"new_lr" for new logistic regression, and'
-                             '"deep_nn for deep neural net.')  # orig, new_lr, deep_nn
+                        help='Choose one of the following: orig new_lr deep_fcn wide_fcn fcn cnn')
     main(parser.parse_args())
     print('\nCompelted file: ', os.path.basename(__file__))

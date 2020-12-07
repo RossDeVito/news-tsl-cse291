@@ -1,15 +1,20 @@
 import argparse
+import os
+import sys
+sys.path.append(os.path.join("../"))
+
 from pathlib import Path
 from tilse.data.timelines import Timeline as TilseTimeline
 from tilse.data.timelines import GroundTruth as TilseGroundTruth
-from tilse.evaluation import rouge
+from tilse.evaluation import rouge as tilse_rouge
 from news_tls import utils, data, datewise, clust, summarizers
 from pprint import pprint
+import torch
 
 import numpy as np
-
-from metrics.moverscore import get_idf_dict, get_wordmover_score
+from experiments.metrics.moverscore import get_idf_dict, get_wordmover_score
 from collections import defaultdict
+from date_models.model_utils import *
 
 
 def get_scores(metric_desc, pred_tl, groundtruth, evaluator):
@@ -107,7 +112,7 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False,
 
 	results = []
 	metric = 'align_date_content_costs_many_to_one'
-	evaluator = rouge.TimelineRougeEvaluator(measures=["rouge_1", "rouge_2"])
+	evaluator = tilse_rouge.TimelineRougeEvaluator(measures=["rouge_1", "rouge_2"])
 	n_topics = len(dataset.collections)
 
 	for i, collection in enumerate(dataset.collections):
@@ -198,12 +203,24 @@ def main(args):
 
 	if args.method == 'datewise':
 		resources = Path(args.resources)
-		models_path = resources / 'supervised_date_ranker.{}.pkl'.format(
-			dataset_name
-		)
-		# load regression models for date ranking
-		key_to_model = utils.load_pkl(models_path)
-		date_ranker = datewise.SupervisedDateRanker(method='regression')
+
+		# load date_models for date ranking
+		if args.model == 'new_lr':
+			method = 'log_regression'
+			model_path = resources / 'date_ranker_new_lr.all.pkl'
+			key_to_model = utils.load_pkl(model_path)
+			model = key_to_model[dataset_name]
+		elif is_neural_net(args.model):  # fcn, deep_fcn, cnn, wide_fcn
+			model, model_path = model_selector(args.model)
+			model.load_state_dict(torch.load(model_path)[dataset_name])
+			method = 'neural_net'
+			key_to_model = None
+		else:
+			method = 'linear_regression'
+			model_path = resources / 'date_ranker_orig.{}.pkl'.format(dataset_name)
+			key_to_model = utils.load_pkl(model_path)
+			model = None
+		date_ranker = datewise.SupervisedDateRanker(model, method=method)
 		sent_collector = datewise.PM_Mean_SentenceCollector(
 			clip_sents=5, pub_end=2)
 		summarizer = summarizers.CentroidOpt()
@@ -211,7 +228,8 @@ def main(args):
 			date_ranker=date_ranker,
 			summarizer=summarizer,
 			sent_collector=sent_collector,
-			key_to_model = key_to_model
+			key_to_model = key_to_model,
+			method=method
 		)
 
 	elif args.method == 'clust':
@@ -242,6 +260,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--dataset', required=True)
 	parser.add_argument('--method', required=True)
+	parser.add_argument('--model', required=False, default='orig')
 	parser.add_argument('--resources', default=None,
 		help='model resources for tested method')
 	parser.add_argument('--output', default=None)

@@ -1,16 +1,19 @@
 import argparse
 from pathlib import Path
-from tilse.data.timelines import Timeline as TilseTimeline
-from tilse.data.timelines import GroundTruth as TilseGroundTruth
-from tilse.evaluation import rouge
-from news_tls import utils, data, datewise, clust, summarizers
 from pprint import pprint
+import sys
+import os
 import torch
-from date_models.models import *
 
+from tilse.data.timelines import GroundTruth as TilseGroundTruth
+from tilse.data.timelines import Timeline as TilseTimeline
+from tilse.evaluation import rouge
+# r = Rouge155('/datasets/home/08/008/whogan/.local/lib/python3.7/site-packages/pyrouge/tools/ROUGE-1.5.5')
+
+from news_tls import utils, data, clust, summarizers
+from date_models.model_utils import *
 
 def get_scores(metric_desc, pred_tl, groundtruth, evaluator):
-
     if metric_desc == "concat":
         return evaluator.evaluate_concat(pred_tl, groundtruth)
     elif metric_desc == "agreement":
@@ -73,7 +76,6 @@ def get_average_results(tmp_results):
 
 
 def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_extension=0):
-
     results = []
     metric = 'align_date_content_costs_many_to_one'
     evaluator = rouge.TimelineRougeEvaluator(measures=["rouge_1", "rouge_2"])
@@ -90,9 +92,7 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_e
             ref_timelines = data.truncate_timelines(ref_timelines, collection)
 
         for j, ref_timeline in enumerate(ref_timelines):
-
-
-            print(f'topic {i+1}/{n_topics}: {topic}, ref timeline {j+1}/{n_ref}')
+            print(f'topic {i + 1}/{n_topics}: {topic}, ref timeline {j + 1}/{n_ref}')
 
             tls_model.load(ignored_topics=[collection.name])
 
@@ -112,7 +112,7 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_e
                 collection,
                 max_dates=l,
                 max_summary_sents=k,
-                ref_tl=ref_timeline # only oracles need this
+                ref_tl=ref_timeline  # only oracles need this
             )
 
             print('*** PREDICTED ***')
@@ -147,7 +147,6 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False, time_span_e
 
 
 def main(args):
-
     dataset_path = Path(args.dataset)
     if not dataset_path.exists():
         raise FileNotFoundError(f'Dataset not found: {args.dataset}')
@@ -157,24 +156,21 @@ def main(args):
     if args.method == 'datewise':
         resources = Path(args.resources)
 
-
-
-        # load regression date_models for date ranking
+        # load date_models for date ranking
         if args.model == 'new_lr':
             method = 'log_regression'
-            models_path = resources / 'date_ranker_new_lr.all.pkl'
-            key_to_model = utils.load_pkl(models_path)
+            model_path = resources / 'date_ranker_new_lr.all.pkl'
+            key_to_model = utils.load_pkl(model_path)
             model = key_to_model[dataset_name]
-        elif args.model == 'deep_nn':
-            method = 'deep_nn'
-            model = FCNet(in_dims=7)
-            models_path = resources / 'date_ranker_fcn.all.bin'
-            model.load_state_dict(torch.load(models_path)[dataset_name])
+        elif is_neural_net(args.model): # fcn, deep_fcn, cnn, wide_fcn
+            model, model_path = model_selector(args.model)
+            model.load_state_dict(torch.load(model_path)[dataset_name])
+            method = 'neural_net'
             key_to_model = None
         else:
             method = 'linear_regression'
-            models_path = resources / 'date_ranker_orig.{}.pkl'.format(dataset_name)
-            key_to_model = utils.load_pkl(models_path)
+            model_path = resources / 'date_ranker_orig.{}.pkl'.format(dataset_name)
+            key_to_model = utils.load_pkl(model_path)
             model = None
         date_ranker = datewise.SupervisedDateRanker(model, method=method)
         sent_collector = datewise.PM_Mean_SentenceCollector(
@@ -184,8 +180,8 @@ def main(args):
             date_ranker=date_ranker,
             summarizer=summarizer,
             sent_collector=sent_collector,
-            key_to_model = key_to_model,
-            method = method
+            key_to_model=key_to_model,
+            method=method
         )
 
     elif args.method == 'clust':
@@ -202,7 +198,6 @@ def main(args):
     else:
         raise ValueError(f'Method not found: {args.method}')
 
-
     if dataset_name == 'entities':
         evaluate(system, dataset, args.output, trunc_timelines=True, time_span_extension=7)
     else:
@@ -213,8 +208,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', required=True)
     parser.add_argument('--method', required=True)
-    parser.add_argument('--model', required=False, default=False)
+    parser.add_argument('--model', required=False, default='orig')
     parser.add_argument('--resources', default=None,
-        help='model resources for tested method')
+                        help='model resources for tested method')
     parser.add_argument('--output', default=None)
     main(parser.parse_args())

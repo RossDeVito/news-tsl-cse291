@@ -152,8 +152,8 @@ class SupervisedDateRanker(DateRanker):
         self.data_test = None
 
 
-        if method not in ['deep_nn', 'log_regression', 'linear_regression']:
-            raise ValueError('method must be classification or regression')
+        if method not in ['neural_net', 'log_regression', 'linear_regression']:
+            raise ValueError('method must be nueral_net, log_regrssion, or linear_regression')
 
     def init_data(self, all_data, return_data=False):
         '''
@@ -185,9 +185,9 @@ class SupervisedDateRanker(DateRanker):
         y_preds = self.model.predict(x)
         #temp = self.model.decision_function(x) #TODO: REAL MODEL WANTS THIS! LogReg only!
         if linear:
-            a, p, r, f1_macro, f1_micro = date_models.model_utils.metrics(y, y_preds, linear=linear)
-            return a, p, r, f1_macro, f1_micro
+            return y, y_preds
         date_models.model_utils.metrics(y, y_preds, linear=linear)
+        date_models.model_utils.precision_recall_f1(y, y_preds, linear=linear)
 
     def save_model(self, filename, all_model_dict):
         date_models.model_utils.save_model(filename, all_model_dict)
@@ -215,12 +215,13 @@ class SupervisedDateRanker(DateRanker):
             Y = self.model['model'].predict(X)
         elif self.method == 'log_regression':
             Y = [y[1] for y in self.model.predict_proba(X)]
-        elif self.method == 'deep_nn':
+        elif self.method == 'neural_net':
             self.model.eval()
             X = normalize(X, norm='l2', axis=0)
             X = torch.from_numpy(X).float()
-            Y = self.model(X)
-            Y = Y.cpu().numpy()
+            with torch.no_grad():
+                Y = self.model(X)
+            Y = list(Y.detach().cpu().numpy().flatten())
         scored = sorted(zip(dates, Y), key=lambda x: x[1], reverse=True)
         ranked = [x[0] for x in scored]
         # for d, score in scored[:16]:
