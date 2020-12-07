@@ -29,8 +29,8 @@ model.to(device)
 nltk_stopwords = stopwords.words('english')
 				
 def truncate(tokens):
-	if len(tokens) > tokenizer.max_len - 2:
-		tokens = tokens[0:(tokenizer.max_len - 2)]
+	if len(tokens) > tokenizer.model_max_length - 2:
+		tokens = tokens[0:(tokenizer.model_max_length - 2)]
 	return tokens
 
 def process(a):
@@ -192,7 +192,7 @@ def get_timeline_sent_list(timeline):
 
 	return sent_list
 
-def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk'):
+def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk', device='cpu'):
 	if isinstance(ground_truth, TilseGroundTruth):
 		ground_truth = ground_truth.timelines[0]
 
@@ -208,7 +208,7 @@ def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk'):
 
 	wm_score = word_mover_score(
 		[full_gt_text], [full_timeline_text], idf_dict_ref, idf_dict_hyp,
-		stop_words=wm_stop_words, n_gram=1, remove_subwords=True
+		stop_words=wm_stop_words, n_gram=1, remove_subwords=True, device=device
 	)
 
 	# aligned WordMover
@@ -229,7 +229,7 @@ def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk'):
 
 	pair_scores = word_mover_score(
 		gt_events, tl_events, idf_dict_ref, idf_dict_hyp,
-		stop_words=wm_stop_words, n_gram=1, remove_subwords=True
+		stop_words=wm_stop_words, n_gram=1, remove_subwords=True, device=device
 	)
 
 	gt_inds = np.asarray(gt_inds)
