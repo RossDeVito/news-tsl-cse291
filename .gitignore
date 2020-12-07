@@ -14,6 +14,11 @@ date_models/**
 # Ross local
 experiments/new_metrics.py
 experiments/__pycache__/
+experiments/nohup*
+experiments/summarizers_new.py
+experiments/tr_network.py
+experiments/clust_new.py
+results/
 
 
 # Byte-compiled / optimized / DLL files

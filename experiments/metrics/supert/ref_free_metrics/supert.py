@@ -16,7 +16,7 @@ from sentence_transformers import SentenceTransformer
 
 class Supert():
 	def __init__(self, docs, ref_metric='top15', sim_metric='f1'):
-		self.bert_model = SentenceTransformer('bert-large-nli-stsb-mean-tokens') 
+		self.bert_model = SentenceTransformer('bert-large-nli-stsb-mean-tokens', device='cpu') 
 		self.sim_metric = sim_metric
 
 		# pre-process the documents
@@ -31,8 +31,18 @@ class Supert():
 	def get_all_token_vecs(self, model, sent_info_dict):
 		all_sents = [sent_info_dict[i]['text'] for i in sent_info_dict]
 
-		all_vecs, all_tokens = model.encode(all_sents, token_vecs=True, 
+		# all_vecs, all_tokens = model.encode(all_sents, output_value='token_embeddings', 
+		# 	batch_size=256, show_progress_bar=True)
+
+		all_vecs = model.encode(all_sents, 
 			batch_size=256, show_progress_bar=True)
+		print(all_vecs)
+		print(all_vecs.shape)
+
+		all_tokens = model.encode(all_sents, output_value='token_embeddings', 
+				batch_size=256, show_progress_bar=True)
+		print(all_tokens)
+		print(all_tokens.shape)
 
 		assert len(all_vecs) == len(all_tokens)
 		for i in range(len(all_vecs)):

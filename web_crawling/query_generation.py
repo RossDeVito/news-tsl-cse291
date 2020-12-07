@@ -43,7 +43,7 @@ def generate_query(tls, kws, dir):
 
 
 if __name__ == '__main__':
-    root = './entities/'
+    root = '../../data/entities/Rupert_Murdoch'
 
     # visit the directory, yo can change it to any directory as you want
     print(root)
