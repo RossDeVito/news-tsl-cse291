@@ -1,4 +1,5 @@
 import argparse
+from collections import defaultdict
 from pathlib import Path
 from tilse.data.timelines import Timeline as TilseTimeline
 from tilse.data.timelines import GroundTruth as TilseGroundTruth
@@ -7,9 +8,12 @@ from news_tls import utils, data, datewise, clust, summarizers
 from pprint import pprint
 
 import numpy as np
+import time
+from scipy import stats
+from sklearn.preprocessing import MinMaxScaler
 
 from metrics.moverscore import get_idf_dict, get_wordmover_score
-from collections import defaultdict
+# import tr_network
 
 
 def get_scores(metric_desc, pred_tl, groundtruth, evaluator):
@@ -52,14 +56,44 @@ def evaluate_dates(pred, ground_truth):
 	}
 
 
+def date_dist_scores(ref_timeline, ground_truth, p_val=.05):
+	'''
+	Scores predicted distribution of timeline event dates using 2 sample
+		Kolmogorov-Smirnov statistic and the first Wasserstein distance
+		(earth mover's distance)
+
+	Returns dict with KS statistic, if time distributions are statistically 
+		significantly different, and the Wasserstein distance
+	'''
+	gt_dates = [time.mktime(d.timetuple()) for d in ground_truth.get_dates()]
+	ref_dates = [time.mktime(d.timetuple()) for d in ref_timeline.get_dates()]
+
+	scaler = MinMaxScaler()
+
+	gt_scaled = scaler.fit_transform(np.array(gt_dates).reshape(-1, 1)).T[0]
+	ref_scaled = scaler.transform(np.array(ref_dates).reshape(-1, 1)).T[0]
+
+	ks_test = stats.ks_2samp(gt_scaled, ref_scaled)
+	emd = stats.wasserstein_distance(gt_scaled, ref_scaled)
+
+	# ks_signif 1 when the differentce in date distribution between ground 
+	#	truth and generated timelines is statistically significant
+	return {
+		'ks_stat': ks_test.statistic,
+		'ks_signif': int(ks_test.pvalue < p_val),
+		'earth_movers_distance': emd
+	}
+
+
 def get_average_results(tmp_results):
 	rouge_1 = zero_scores()
 	rouge_2 = zero_scores()
 	date_prf = zero_scores()
 
 	wm_dicts = []
+	dd_dicts = []
 
-	for rouge_res, date_res, wm, _ in tmp_results:
+	for rouge_res, date_res, wm, dd, _ in tmp_results:
 		metrics = [m for m in date_res.keys() if m != 'f_score']
 		for m in metrics:
 			rouge_1[m] += rouge_res['rouge_1'][m]
@@ -67,6 +101,7 @@ def get_average_results(tmp_results):
 			date_prf[m] += date_res[m]
 
 		wm_dicts.append(wm)
+		dd_dicts.append(dd)
 
 	n = len(tmp_results)
 
@@ -94,10 +129,20 @@ def get_average_results(tmp_results):
 		),
 	}
 
+	# average date dist scores
+	dd_res = {
+		"ks_stat": np.mean([d['ks_stat'] for d in dd_dicts]),
+		"ks_signif": np.mean([d['ks_signif'] for d in dd_dicts]),
+		"earth_movers_distance": np.mean(
+			[d['earth_movers_distance'] for d in dd_dicts]
+		),
+	}
+
 	return {
 		'rouge 1': rouge_1,
 		'rouge 2': rouge_2,
 		'date': date_prf,
+		'date_dist': dd_res,
 		'wordmover': wm_res
 	}
 
@@ -163,7 +208,9 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False,
 			wm_scores = get_wordmover_score(
 				pred_timeline,
 				ground_truth,
-				word_mover_stop_words)
+				word_mover_stop_words,
+				device='cpu')
+			dd_scores = date_dist_scores(pred_timeline, ground_truth)
 
 			print('sys-len:', sys_len, 'gold-len:', l, 'gold-k:', k)
 
@@ -171,12 +218,18 @@ def evaluate(tls_model, dataset, result_path, trunc_timelines=False,
 			pprint(rouge_scores)
 			print('Date selection:')
 			pprint(date_scores)
+			pprint(dd_scores)
 			print('WordMover scores:')
 			pprint(wm_scores)
 			print('-' * 100)
 			results.append(
-				(rouge_scores, date_scores, wm_scores, pred_timeline_.to_dict())
+				(rouge_scores, date_scores, wm_scores, dd_scores, 
+					pred_timeline_.to_dict())
 			)
+
+			print("Running average:")
+			print(get_average_results(results))
+			print()
 
 	avg_results = get_average_results(results)
 	print('Average results:')
@@ -225,6 +278,87 @@ def main(args):
 			clip_sents=5,
 			unique_dates=True,
 		)
+	elif args.method == 'clust_sbertsum':
+		cluster_ranker = clust.ClusterDateMentionCountRanker()
+		clusterer = clust.TemporalMarkovClusterer()
+		summarizer = summarizers.SBERTSummarizer(
+			date_only=False,
+			summary_criteria='similarity',
+            candidate_sents_per=5,
+            compare_with='both'
+		)
+		system = clust.ClusteringTimelineGenerator(
+			cluster_ranker=cluster_ranker,
+			clusterer=clusterer,
+			summarizer=summarizer,
+			clip_sents=5,
+			unique_dates=True,
+			sbert_summarizer=True
+		)
+	elif args.method == 'clust_sbert':
+		cluster_ranker = clust.ClusterDateMentionCountRanker()
+		clusterer = clust.TemporalMarkovClusterer(max_days=8)
+		summarizer = summarizers.CentroidOpt()
+		system = clust.ClusteringTimelineGenerator(
+			clustering_rep='distilroberta-base-paraphrase-v1',
+			sbert_sequence_len=512,
+			cluster_ranker=cluster_ranker,
+			clusterer=clusterer,
+			summarizer=summarizer,
+			clip_sents=5,
+			unique_dates=True,
+		)
+	elif args.method == 'clust_sbert_sbertsum':
+		cluster_ranker = clust.ClusterDateMentionCountRanker()
+		clusterer = clust.TemporalMarkovClusterer(max_days=7)
+		summarizer = summarizers.SBERTSummarizer(
+			date_only=True,
+			summary_criteria='similarity',
+            candidate_sents_per=5,
+            compare_with='both'
+		)
+		system = clust.ClusteringTimelineGenerator(
+			clustering_rep='distilroberta-base-paraphrase-v1',
+			sbert_sequence_len=512,
+			cluster_ranker=cluster_ranker,
+			clusterer=clusterer,
+			summarizer=summarizer,
+			sbert_summarizer=True,
+			clip_sents=5,
+			unique_dates=True,
+		)
+	elif args.method == 'clust_sbert_sbert_old':
+		cluster_ranker = clust.ClusterDateMentionCountRanker()
+		clusterer = clust.TemporalMarkovClusterer(max_days=7)
+		summarizer = summarizers.SubmodularSummarizer()
+		system = clust.ClusteringTimelineGenerator(
+			clustering_rep='distilroberta-base-paraphrase-v1',
+			sbert_sequence_len=512,
+			cluster_ranker=cluster_ranker,
+			clusterer=clusterer,
+			summarizer=summarizer,
+			summarizer_rep='same',
+			clip_sents=5,
+			unique_dates=True,
+		)
+	elif args.method == 'sbert':
+		system = clust.SBERTTimelineGenerator(
+			model_name='distilroberta-base-paraphrase-v1',
+			cd_n_articles=list(range(5, 20, 1)) + list(range(20, 100, 5)),
+			cd_thresholds=np.linspace(.25, .95, 25).tolist(),
+			cd_init_max_size=500,
+			min_comm_mult=1.5,
+			cluster_ranking='date_mention',
+			candidate_sents_per=5,
+			candidate_articles_per=10,
+			similarity_num_articles=10,
+			summary_criteria='similarity',
+			compare_with='both',
+			unique_dates=True
+		)
+	# elif args.method == 'network':
+	# 	summarizer = summarizers.CentroidOpt()
+	# 	system = tr_network.NetworkTimelineGenerator()
 	else:
 		raise ValueError(f'Method not found: {args.method}')
 
@@ -237,7 +371,9 @@ def main(args):
 
 
 if __name__ == '__main__':
-	# time nohup python -u evaluate_new.py --dataset "../../data/entities" --method clust --output "../results/cluster_entities_wm.json"
+	# run examples
+	# nohup time python -u evaluate_new.py --dataset "../../data/entities" --method clust --output "../results/cluster_entities_wm.json"
+	# nohup time python -u evaluate_new.py --dataset "../../data/entities" --method clust_sbert --output "../results/cluster_sbtfidf_entities_wm.json"
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--dataset', required=True)
