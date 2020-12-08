@@ -192,6 +192,14 @@ def get_timeline_sent_list(timeline):
 
 	return sent_list
 
+def get_timeline_event_text_list(timeline):
+	sent_list = []
+
+	for date in sorted(timeline.dates_to_summaries):
+		sent_list.append(' '.join(timeline[date]))
+
+	return sent_list
+
 def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk', device='cpu'):
 	if isinstance(ground_truth, TilseGroundTruth):
 		ground_truth = ground_truth.timelines[0]
@@ -219,8 +227,9 @@ def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk', device='cp
 	gt_events = []
 	tl_events = []
 
-	for (gt_ind, gt), (tl_ind, tl) in product(enumerate(gt_sents),
-												enumerate(timeline_sents)):
+	for (gt_ind, gt), (tl_ind, tl) in product(
+			enumerate(get_timeline_event_text_list(ground_truth)),
+			enumerate(get_timeline_event_text_list(timeline))):
 		gt_inds.append(gt_ind)
 		tl_inds.append(tl_ind)
 
@@ -239,7 +248,8 @@ def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk', device='cp
 	## align to get final score
 	aligned_scores = []
 
-	while len(gt_inds) > 0:
+	while (len(gt_inds) > 0 and len(tl_inds) > 0):
+			#and len(aligned_scores) < len(ground_truth.get_dates())):
 		top_score_ind = np.argmax(pair_scores)
 		aligned_scores.append(pair_scores[top_score_ind])
 
@@ -251,6 +261,14 @@ def get_wordmover_score(timeline, ground_truth, wm_stop_words='nltk', device='cp
 		gt_inds = gt_inds[keep_mask]
 		tl_inds = tl_inds[keep_mask]
 		pair_scores = pair_scores[keep_mask]
+
+	# set aligned scores length to that of ground truth
+	while len(aligned_scores) < len(ground_truth.get_dates()):
+		print("Adding 0 as aligned score")
+		aligned_scores.append(0)
+
+	if len(aligned_scores) > len(ground_truth.get_dates()):
+		print("Aligned length greater than ground truth")
 
 	return {
 		'wordmover': wm_score[0],
