@@ -269,7 +269,7 @@ def main(args):
 
 	elif args.method == 'clust':
 		cluster_ranker = clust.ClusterDateMentionCountRanker()
-		clusterer = clust.TemporalMarkovClusterer()
+		clusterer = clust.TemporalMarkovClusterer(max_days=1)
 		summarizer = summarizers.CentroidOpt()
 		system = clust.ClusteringTimelineGenerator(
 			cluster_ranker=cluster_ranker,
@@ -297,7 +297,7 @@ def main(args):
 		)
 	elif args.method == 'clust_sbert':
 		cluster_ranker = clust.ClusterDateMentionCountRanker()
-		clusterer = clust.TemporalMarkovClusterer(max_days=8)
+		clusterer = clust.TemporalMarkovClusterer(max_days=365)
 		summarizer = summarizers.CentroidOpt()
 		system = clust.ClusteringTimelineGenerator(
 			clustering_rep='distilroberta-base-paraphrase-v1',
