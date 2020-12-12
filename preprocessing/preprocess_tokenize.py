@@ -1,7 +1,9 @@
 import os
+import sys
 import argparse
 import pathlib
 import spacy
+sys.path.append(os.path.join("../"))
 from news_tls import utils
 
 

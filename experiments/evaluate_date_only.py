@@ -1,12 +1,10 @@
 import argparse
-from pathlib import Path
-import torch
-from torch.utils.data import DataLoader
-import sys
 import os
+import sys
+
+from torch.utils.data import DataLoader
 
 sys.path.append(os.path.join("../"))
-
 
 from date_models.model_utils import *
 from news_tls.data import *
@@ -17,7 +15,9 @@ def main(args):
     debug_warning(args.debug)
 
     # Init
-    dataset_names = ['crisis', 't17', 'entities']
+    dataset_names = ['topics']
+    # dataset_names = ['crisis', 't17', 'entities']
+
     print('Evaluating {} models for the following datasets: {}'.format(args.model, dataset_names))
 
     for dataset_name in dataset_names:
@@ -37,18 +37,13 @@ def main(args):
             method = 'neural_net'
 
         # Extract a set of features and labels for all collections (aka topics) in the dataset
-        super_extracted_features, super_dates_y = extract_features_and_labels(dataset.collections, dataset_name, args.debug, orig_eval, method=method)
+        super_extracted_features, super_dates_y = extract_features_and_labels(dataset.collections, dataset_name,
+                                                                              args.debug, orig_eval, method=method)
 
         # Run logistic regression for all timelines, in all collections
         super_date_ranker = datewise.SupervisedDateRanker()
         t, v, f = super_date_ranker.init_data((super_extracted_features, super_dates_y),
-                                              return_data=True)  # train/val/test splits
-
-
-        # python evaluate_date_only.py --model fcn > date_only.fcn.v2.out
-        # python evaluate_date_only.py --model deep_fcn > date_only.deep_fcn.v2.out
-        # python evaluate_date_only.py --model wide_fcn > date_only.wide_fcn.v2.out
-        # python evaluate_date_only.py --model cnn > date_only.cnn.v2.out
+                                              return_data=True)  # train/val/test splitså
 
         # Load and run model
         print('Evaluating {} model on a test set from {}:'.format(args.model, dataset_name))

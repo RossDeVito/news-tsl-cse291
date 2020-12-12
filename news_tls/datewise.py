@@ -262,6 +262,7 @@ class SupervisedDateRanker(DateRanker):
         for a in collection.articles():  # each article
             pub_date = a.time.date()
             mentioned_dates = []
+            date_to_feats[pub_date]['docs_published'] += 1
             for s in a.sentences:  # each sentence in each article
                 if s.time and s.time_level == 'd':
                     d = s.time.date()
