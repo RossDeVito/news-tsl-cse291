@@ -1,15 +1,24 @@
-import random
-import datetime
 import collections
+import datetime
+import random
+
 import numpy as np
+import torch
 from scipy import sparse
-from sklearn.preprocessing import normalize
+from sklearn import linear_model
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 from sklearn.metrics.pairwise import cosine_similarity
-from news_tls import data, utils, summarizers
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import normalize
+import date_models.model_utils
+from news_tls import data, summarizers, utils
+from collections import defaultdict
+from statistics import mean
 
 
-random.seed(42)
+SEED = 42
+random.seed(SEED)
 
 
 class DatewiseTimelineGenerator():
@@ -19,13 +28,15 @@ class DatewiseTimelineGenerator():
                  sent_collector=None,
                  clip_sents=5,
                  pub_end=2,
-                 key_to_model=None):
+                 key_to_model=None,
+                 method='linear_regression'):
 
         self.date_ranker = date_ranker or MentionCountDateRanker()
         self.sent_collector = sent_collector or PM_Mean_SentenceCollector(
             clip_sents, pub_end)
         self.summarizer = summarizer or summarizers.CentroidOpt()
         self.key_to_model = key_to_model
+        self.method = method
 
     def predict(self,
                 collection,
@@ -90,7 +101,7 @@ class DatewiseTimelineGenerator():
 
     def load(self, ignored_topics):
         key = ' '.join(sorted(ignored_topics))
-        if self.key_to_model:
+        if self.key_to_model and self.method != 'log_regression':
             self.date_ranker.model = self.key_to_model[key]
 
 
@@ -129,19 +140,88 @@ class PubCountDateRanker(DateRanker):
 
 
 class SupervisedDateRanker(DateRanker):
-    def __init__(self, model=None, method='classification'):
+    def __init__(self, model=None, method='linear_regression'):
         self.model = model
         self.method = method
-        if method not in ['classification', 'regression']:
-            raise ValueError('method must be classification or regression')
+        self.important_dates = None
+
+        # Tuples of (x_data, y_labels)
+        self.data_all = None
+        self.data_train = None
+        self.data_val = None
+        self.data_test = None
+
+
+        if method not in ['neural_net', 'log_regression', 'linear_regression']:
+            raise ValueError('method must be nueral_net, log_regrssion, or linear_regression')
+
+    def init_data(self, all_data, return_data=False):
+        '''
+        Takes in tuple of (x_data, y_labels)
+        Creates train/val/test splits, 80/10/10
+        '''
+        x_train, x_val_and_test, y_train, y_val_and_test = train_test_split(all_data[0], all_data[1], test_size=0.2,
+                                                                            random_state=SEED)
+        x_val, x_test, y_val, y_test = train_test_split(x_val_and_test, y_val_and_test, test_size=.5, random_state=SEED)
+        self.data_train = (x_train, y_train)
+        self.data_val = (x_val, y_val)
+        self.data_test = (x_test, y_test)
+        if return_data:
+            return self.data_train, self.data_val, self.data_test
+
+    def train_lr(self):
+        '''
+        Runs logistic regression on the training data
+        Computes f1 and a
+        '''
+        logistic_regression = linear_model.LogisticRegression(random_state=SEED)
+        logistic_regression.fit(self.data_train[0], self.data_train[1])
+        self.model = logistic_regression
+
+    def predict_lr(self, x_y=None, linear=False):
+        '''Predicts with LR model. Input is tuple with x and ground truth y'''
+        if x_y is None: x_y = self.data_test
+        x, y = x_y
+        y_preds = self.model.predict(x)
+        #temp = self.model.decision_function(x) #TODO: REAL MODEL WANTS THIS! LogReg only!
+        if linear:
+            return y, y_preds
+        date_models.model_utils.metrics(y, y_preds, linear=linear)
+        date_models.model_utils.precision_recall_f1(y, y_preds, linear=linear)
+
+    def save_model(self, filename, all_model_dict):
+        date_models.model_utils.save_model(filename, all_model_dict)
+
+
+    def load_model_lr(self, model_path, dataset_name):
+        model_dict = utils.load_pkl(model_path)
+        self.model = model_dict[dataset_name]
+
+    def load_model_orig(self, model_path, topic):
+        model_dict = utils.load_pkl(model_path)
+        self.model = model_dict[topic]['model']
+        print()
+        # x = model_dict['model']
+        # x = model_dict[dataset_name]['model']
+        # self.model = model_dict[dataset_name]['model']
+
+    def get_model(self):
+        return self.model
 
     def rank_dates(self, collection):
         dates, X = self.extract_features(collection)
-        X = normalize(X, norm='l2', axis=0)
-        if self.method == 'classification':
-            Y = [y[1] for y in self.model['model'].predict_proba(X)]
-        else:
+        if self.method == 'linear_regression':
+            X = normalize(X, norm='l2', axis=0)
             Y = self.model['model'].predict(X)
+        elif self.method == 'log_regression':
+            Y = [y[1] for y in self.model.predict_proba(X)]
+        elif self.method == 'neural_net':
+            self.model.eval()
+            X = normalize(X, norm='l2', axis=0)
+            X = torch.from_numpy(X).float()
+            with torch.no_grad():
+                Y = self.model(X)
+            Y = list(Y.detach().cpu().numpy().flatten())
         scored = sorted(zip(dates, Y), key=lambda x: x[1], reverse=True)
         ranked = [x[0] for x in scored]
         # for d, score in scored[:16]:
@@ -160,7 +240,7 @@ class SupervisedDateRanker(DateRanker):
                 date_to_stats[d]['docs_total'],
                 date_to_stats[d]['docs_before'],
                 date_to_stats[d]['docs_after'],
-                date_to_stats[d]['docs_published'],
+                date_to_stats[d]['docs_published'],  # empty!!
             ]
             X.append(np.array(feats))
         X = np.array(X)
@@ -179,10 +259,11 @@ class SupervisedDateRanker(DateRanker):
             'docs_published': 0
         }
         date_to_feats = collections.defaultdict(default)
-        for a in collection.articles():
+        for a in collection.articles():  # each article
             pub_date = a.time.date()
             mentioned_dates = []
-            for s in a.sentences:
+            date_to_feats[pub_date]['docs_published'] += 1
+            for s in a.sentences:  # each sentence in each article
                 if s.time and s.time_level == 'd':
                     d = s.time.date()
                     date_to_feats[d]['sents_total'] += 1
@@ -285,7 +366,7 @@ class PM_Mean_SentenceCollector:
         date_to_pub, date_to_ment = self._first_pass(
             collection, include_titles)
         for d, sents in self._second_pass(
-            ranked_dates, date_to_pub, date_to_ment, vectorizer):
+                ranked_dates, date_to_pub, date_to_ment, vectorizer):
             yield d, sents
 
     def _first_pass(self, collection, include_titles):

@@ -44,11 +44,11 @@ def main(args):
     dataset_name = dataset_path.name
 
     if args.method == 'datewise':
-        # load regression models for date ranking
+        # load regression date_models for date ranking
         key_to_model = utils.load_pkl(args.model)
         models = list(key_to_model.values())
         date_ranker = datewise.SupervisedDateRanker(method='regression')
-        # there are multiple models (for cross-validation),
+        # there are multiple date_models (for cross-validation),
         # we just an arbitrary model, the first one
         date_ranker.model = models[0]
         sent_collector = datewise.PM_Mean_SentenceCollector(
