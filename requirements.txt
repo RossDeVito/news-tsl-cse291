@@ -11,3 +11,5 @@ tilse~=0.2.1
 networkx~=2.4
 setuptools~=45.2.0
 requests~=2.22.0
+
+transformers<=3.5.0

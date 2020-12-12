@@ -10,14 +10,13 @@ from tilse.evaluation import rouge as tilse_rouge
 from news_tls import utils, data, clust, summarizers
 from pprint import pprint
 
-from experiments.metrics.moverscore import get_wordmover_score
 from date_models.model_utils import *
 
 import time
 from scipy import stats
 from sklearn.preprocessing import MinMaxScaler
 
-from metrics.moverscore import get_wordmover_score
+from experiments.metrics.moverscore import get_wordmover_score
 
 
 def get_scores(metric_desc, pred_tl, groundtruth, evaluator):
@@ -281,7 +280,7 @@ def main(args):
 
     elif args.method == 'clust':
         cluster_ranker = clust.ClusterDateMentionCountRanker()
-        clusterer = clust.TemporalMarkovClusterer()
+        clusterer = clust.TemporalMarkovClusterer(max_days=1)
         summarizer = summarizers.CentroidOpt()
         system = clust.ClusteringTimelineGenerator(
             cluster_ranker=cluster_ranker,
@@ -309,7 +308,7 @@ def main(args):
         )
     elif args.method == 'clust_sbert':
         cluster_ranker = clust.ClusterDateMentionCountRanker()
-        clusterer = clust.TemporalMarkovClusterer(max_days=8)
+        clusterer = clust.TemporalMarkovClusterer(max_days=365)
         summarizer = summarizers.CentroidOpt()
         system = clust.ClusteringTimelineGenerator(
             clustering_rep='distilroberta-base-paraphrase-v1',
@@ -369,8 +368,8 @@ def main(args):
             unique_dates=True
         )
     # elif args.method == 'network':
-    # 	summarizer = summarizers.CentroidOpt()
-    # 	system = tr_network.NetworkTimelineGenerator()
+    #     summarizer = summarizers.CentroidOpt()
+    #     system = tr_network.NetworkTimelineGenerator()
     else:
         raise ValueError(f'Method not found: {args.method}')
 
