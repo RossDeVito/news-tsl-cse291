@@ -6,6 +6,9 @@
 **/datasets
 **/results
 date_models/**
+**/datasets
+**/results
+
 #
 # Python Master gitignore file
 # Thanks to https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
@@ -19,6 +22,7 @@ experiments/summarizers_new.py
 experiments/tr_network.py
 experiments/clust_new.py
 results/
+
 
 
 # Byte-compiled / optimized / DLL files
