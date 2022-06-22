@@ -24,7 +24,7 @@ murmurhash==1.0.4
 networkx==2.5
 nltk==3.5
 numba==0.52.0
-numpy==1.19.4
+numpy==1.22.0
 pandas==1.1.4
 pathlib2==2.3.5
 Pillow==8.0.1
